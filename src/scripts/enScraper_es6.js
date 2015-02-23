@@ -70,9 +70,8 @@ casper.then(function() {
   }
 })
 
-//need to access the DOM. => use thenEvaluate() method
-casper.thenEvaluate(function() {
-  
+
+let extractProfileInfo = () => {
   //should try to always find all the available profiles to export. 
   let profilesDOM = document.querySelectorAll('ul#universeAvailable li')
   let profileDetails = _.reduce(profilesDOM, (acc, val, idx) => {
@@ -83,65 +82,72 @@ casper.thenEvaluate(function() {
     acc.push(profile)
     return acc 
   }, [])
-
-
-  let officeProfiles = _.keys(profileId)
-  let office = profileDetails[1]
-  let idString
-
-  let newItem = document.createElement('LI')
-  newItem.className = office.className
-  newItem.id = office.id
-  newItem.style = office.style
-
-  let aLink = document.createElement('A')
-  aLink.className = 'dragLink'
-  aLink.style = 'cursor:move;'
-
-  let span = document.createElement('SPAN')
-  span.className = 'imagelinktext'
-
-  let textNode = document.createTextNode(`yadda yadda yadda`) 
-
-  span.appendChild(textNode)
-  aLink.appendChild(span)
-  newItem.appendChild(aLink)
-
-  let list = document.getElementById('universeSelected') 
-
-  // Insert <li> before the first child of <ul>
-  list.insertBefore(newItem, list.childNodes[0])   
-})
+  
+  return profileDetails
+}
 
 casper.then(function () {
-  this.echo('===> clicking RUN')
-  this.click('input[name="review"]')
+  let profileDetails = this.evaluate(extractProfileInfo)
+
+  this.eachThen(profileDetails, function (response) {
+    this.echo(response.data.id)
+    this.thenEvaluate(function (profile) {
+      //let office = profileDetails[1]
+      let office = profile.data 
+      let newItem = document.createElement('LI')
+      let aLink = document.createElement('A')
+      let span = document.createElement('SPAN')
+      let textNode = document.createTextNode(`yadda yadda yadda`) 
+      let list = document.getElementById('universeSelected') 
+    
+      newItem.className = office.className
+      newItem.id = office.id
+      newItem.style = office.style
+      aLink.className = 'dragLink'
+      aLink.style = 'cursor:move;'
+      span.className = 'imagelinktext'
+    
+      span.appendChild(textNode)
+      aLink.appendChild(span)
+      newItem.appendChild(aLink)
+    
+      // Insert <li> before the first child of <ul>
+      list.insertBefore(newItem, list.childNodes[0])   
+
+      this.then(function () {
+        this.echo('===> clicking RUN')
+        this.click('input[name="review"]')
+      })
+      this.then(function () {
+        this.echo('===> SHOULD BE REVIEW page. we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        //this.echo(this.getPageContent())
+        this.click('input[name="export"]')
+      })
+      this.then(function () {
+        this.echo('===> clicking OK in add ons...we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        this.click('div#exportAddOnsDiv input[value="OK"]')
+      })
+      this.then(function () {
+        this.echo('===> SHOULD BE AFTER EXPORTING we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        //this.echo(this.getPageContent())
+        let text = this.fetchText('table.resultListTable td')
+        this.echo(text)
+        fs.write('export_jobs.text', text, 'w')
+      })
+
+    }, profile)
+
+
+  })
+
 })
 
-casper.then(function () {
-  this.echo('===> SHOULD BE REVIEW page. we are at webpage:')
-  this.echo(this.getCurrentUrl())
-  this.echo(this.getTitle())
-  //this.echo(this.getPageContent())
-  this.click('input[name="export"]')
-})
-
-casper.then(function () {
-  this.echo('===> clicking OK in add ons...we are at webpage:')
-  this.echo(this.getCurrentUrl())
-  this.echo(this.getTitle())
-  this.click('div#exportAddOnsDiv input[value="OK"]')
-})
-
-casper.then(function () {
-  this.echo('===> SHOULD BE AFTER EXPORTING we are at webpage:')
-  this.echo(this.getCurrentUrl())
-  this.echo(this.getTitle())
-  //this.echo(this.getPageContent())
-  let text = this.fetchText('table.resultListTable td')
-  this.echo(text)
-  fs.write('export_jobs.text', text, 'w')
-})
 
 /*
 //we should stop here. wait for all the exports to be available.

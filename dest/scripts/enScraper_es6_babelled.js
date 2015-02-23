@@ -67,9 +67,7 @@ casper.then(function () {
   }
 });
 
-//need to access the DOM. => use thenEvaluate() method
-casper.thenEvaluate(function () {
-
+var extractProfileInfo = function () {
   //should try to always find all the available profiles to export.
   var profilesDOM = document.querySelectorAll("ul#universeAvailable li");
   var profileDetails = _.reduce(profilesDOM, function (acc, val, idx) {
@@ -81,62 +79,65 @@ casper.thenEvaluate(function () {
     return acc;
   }, []);
 
-  var officeProfiles = _.keys(profileId);
-  var office = profileDetails[1];
-  var idString = undefined;
-
-  var newItem = document.createElement("LI");
-  newItem.className = office.className;
-  newItem.id = office.id;
-  newItem.style = office.style;
-
-  var aLink = document.createElement("A");
-  aLink.className = "dragLink";
-  aLink.style = "cursor:move;";
-
-  var span = document.createElement("SPAN");
-  span.className = "imagelinktext";
-
-  var textNode = document.createTextNode("yadda yadda yadda");
-
-  span.appendChild(textNode);
-  aLink.appendChild(span);
-  newItem.appendChild(aLink);
-
-  var list = document.getElementById("universeSelected");
-
-  // Insert <li> before the first child of <ul>
-  list.insertBefore(newItem, list.childNodes[0]);
-});
+  return profileDetails;
+};
 
 casper.then(function () {
-  this.echo("===> clicking RUN");
-  this.click("input[name=\"review\"]");
-});
+  var profileDetails = this.evaluate(extractProfileInfo);
 
-casper.then(function () {
-  this.echo("===> SHOULD BE REVIEW page. we are at webpage:");
-  this.echo(this.getCurrentUrl());
-  this.echo(this.getTitle());
-  //this.echo(this.getPageContent())
-  this.click("input[name=\"export\"]");
-});
+  this.eachThen(profileDetails, function (response) {
+    this.echo(response.data.id);
+    this.thenEvaluate(function (profile) {
+      //let office = profileDetails[1]
+      var office = profile.data;
+      var newItem = document.createElement("LI");
+      var aLink = document.createElement("A");
+      var span = document.createElement("SPAN");
+      var textNode = document.createTextNode("yadda yadda yadda");
+      var list = document.getElementById("universeSelected");
 
-casper.then(function () {
-  this.echo("===> clicking OK in add ons...we are at webpage:");
-  this.echo(this.getCurrentUrl());
-  this.echo(this.getTitle());
-  this.click("div#exportAddOnsDiv input[value=\"OK\"]");
-});
+      newItem.className = office.className;
+      newItem.id = office.id;
+      newItem.style = office.style;
+      aLink.className = "dragLink";
+      aLink.style = "cursor:move;";
+      span.className = "imagelinktext";
 
-casper.then(function () {
-  this.echo("===> SHOULD BE AFTER EXPORTING we are at webpage:");
-  this.echo(this.getCurrentUrl());
-  this.echo(this.getTitle());
-  //this.echo(this.getPageContent())
-  var text = this.fetchText("table.resultListTable td");
-  this.echo(text);
-  fs.write("export_jobs.text", text, "w");
+      span.appendChild(textNode);
+      aLink.appendChild(span);
+      newItem.appendChild(aLink);
+
+      // Insert <li> before the first child of <ul>
+      list.insertBefore(newItem, list.childNodes[0]);
+
+      this.then(function () {
+        this.echo("===> clicking RUN");
+        this.click("input[name=\"review\"]");
+      });
+      this.then(function () {
+        this.echo("===> SHOULD BE REVIEW page. we are at webpage:");
+        this.echo(this.getCurrentUrl());
+        this.echo(this.getTitle());
+        //this.echo(this.getPageContent())
+        this.click("input[name=\"export\"]");
+      });
+      this.then(function () {
+        this.echo("===> clicking OK in add ons...we are at webpage:");
+        this.echo(this.getCurrentUrl());
+        this.echo(this.getTitle());
+        this.click("div#exportAddOnsDiv input[value=\"OK\"]");
+      });
+      this.then(function () {
+        this.echo("===> SHOULD BE AFTER EXPORTING we are at webpage:");
+        this.echo(this.getCurrentUrl());
+        this.echo(this.getTitle());
+        //this.echo(this.getPageContent())
+        var text = this.fetchText("table.resultListTable td");
+        this.echo(text);
+        fs.write("export_jobs.text", text, "w");
+      });
+    }, profile);
+  });
 });
 
 /*
