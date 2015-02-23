@@ -1,0 +1,5 @@
+/node_modules
+.privateDetails.json
+export_jobs.text
+*.swp
+.DS_Store
