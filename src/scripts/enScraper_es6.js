@@ -84,47 +84,15 @@ casper.thenEvaluate(function() {
     return acc 
   }, [])
 
-  let profileId = {
-    'All users': '-99', 
-    'Office Access - Milne EO 1': '4947', 
-    'Office Access - Bandt 1': '4946', 
-    'Office Access - Rice 1': '4945', 
-    'Office Access - Whish-Wilson': '4944', 
-    'Office Access - Rhiannon 1': '4943', 
-    'Office Access - Hanson-Young 1': '4942', 
-    'Office Access - Siewart 1': '4941', 
-    'Office Access - Waters 1': '4940', 
-    'Office Access - Di Natale 1': '4939', 
-    'Office Access - Wright 1': '4938', 
-    'Office Access - Ludlam 1': '4729', 
-    'Regional VIC - exploratory CSG licenses': '3730', 
-    'Western Victoria': '3599', 
-    'Melbourne Greater Metropolitan Area': '3151', 
-    'Sydney City': '3144', 
-    'No State': '1907'
-  }
 
   let officeProfiles = _.keys(profileId)
   let office = profileDetails[1]
-  //let officeName = officeProfiles[1]
   let idString
 
   let newItem = document.createElement('LI')
-  //newItem.className = 'draggable ea_build_profile_elements_key_color' 
   newItem.className = office.className
-
-  /*
-  if (officeName === 'All users') {
-    idString = 'available_universe_allUsers_-99'  
-  } else {
-    idString = `available_universe_profile_${profileId[officeName]}`  
-  }
-  
-  newItem.id = idString
-  */
   newItem.id = office.id
   newItem.style = office.style
-  //newItem.style = 'position: relative; z-index: 0; left: 0px; top: 0px; opacity: 1;'
 
   let aLink = document.createElement('A')
   aLink.className = 'dragLink'
@@ -133,7 +101,6 @@ casper.thenEvaluate(function() {
   let span = document.createElement('SPAN')
   span.className = 'imagelinktext'
 
-  //let textNode = document.createTextNode(`${officeName}`) 
   let textNode = document.createTextNode(`yadda yadda yadda`) 
 
   span.appendChild(textNode)
