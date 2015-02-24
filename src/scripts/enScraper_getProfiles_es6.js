@@ -75,6 +75,7 @@ let extractProfileInfo = () => {
 
   let profileDetails = _.reduce(profilesDOM, (acc, val, idx) => {
     let profile = {}
+    //profile.name = document.querySelectorAll(`li#${val.id}`)[0]
     profile.className = val.className
     profile.id = val.id
     profile.style = val.style

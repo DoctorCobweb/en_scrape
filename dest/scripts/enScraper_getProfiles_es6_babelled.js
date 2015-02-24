@@ -71,6 +71,7 @@ var extractProfileInfo = function () {
 
   var profileDetails = _.reduce(profilesDOM, function (acc, val, idx) {
     var profile = {};
+    //profile.name = document.querySelectorAll(`li#${val.id}`)[0]
     profile.className = val.className;
     profile.id = val.id;
     profile.style = val.style;

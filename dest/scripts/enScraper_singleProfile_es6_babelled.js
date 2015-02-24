@@ -116,7 +116,7 @@ casper.then(function () {
   //this.echo(this.getPageContent())
   var text = this.fetchText("table.resultListTable td");
   this.echo(text);
-  fs.write("export_jobs.text", text, "w");
+  fs.write("export_" + profId + "_" + new Date().toJSON() + ".txt", text, "w");
 });
 
 /*

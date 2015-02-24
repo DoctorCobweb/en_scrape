@@ -4,3 +4,4 @@ export_jobs.text
 *.swp
 .DS_Store
 profileDetails.json
+*.txt
