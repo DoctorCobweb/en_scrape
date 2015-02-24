@@ -85,59 +85,13 @@ var extractProfileInfo = function () {
 
 casper.then(function () {
   var profileDetails = this.evaluate(extractProfileInfo);
+  fs.write("profileDetails.json", JSON.stringify(profileDetails), "w");
 
   this.each(profileDetails, function (self, profile) {
-    this.then(function () {
-      this.echo(profile.id);
-      this.thenEvaluate(function (prof) {
-        var office = prof;
-        var newItem = document.createElement("LI");
-        var aLink = document.createElement("A");
-        var span = document.createElement("SPAN");
-        var textNode = document.createTextNode("yadda yadda yadda");
-        var list = document.getElementById("universeSelected");
-
-        newItem.className = office.className;
-        newItem.id = office.id;
-        newItem.style = office.style;
-        aLink.className = "dragLink";
-        aLink.style = "cursor:move;";
-        span.className = "imagelinktext";
-
-        span.appendChild(textNode);
-        aLink.appendChild(span);
-        newItem.appendChild(aLink);
-
-        // Insert <li> before the first child of <ul>
-        list.insertBefore(newItem, list.childNodes[0]);
-      }, profile);
-
-      this.then(function () {
-        this.echo("===> clicking RUN");
-        this.click("input[name=\"review\"]");
-      });
-      this.then(function () {
-        this.echo("===> SHOULD BE REVIEW page. we are at webpage:");
-        this.echo(this.getCurrentUrl());
-        this.echo(this.getTitle());
-        //this.echo(this.getPageContent())
-        this.click("input[name=\"export\"]");
-      });
-      this.then(function () {
-        this.echo("===> clicking OK in add ons...we are at webpage:");
-        this.echo(this.getCurrentUrl());
-        this.echo(this.getTitle());
-        this.click("div#exportAddOnsDiv input[value=\"OK\"]");
-      });
-      this.then(function () {
-        this.echo("===> SHOULD BE AFTER EXPORTING we are at webpage:");
-        this.echo(this.getCurrentUrl());
-        this.echo(this.getTitle());
-        //this.echo(this.getPageContent())
-        var text = this.fetchText("table.resultListTable td");
-        this.echo(text);
-        fs.write("export_jobs.text", text, "w");
-      });
+    var url = "https://www.e-activist.com/ea-account/auth/selectFilters.jsp?type=user%20data";
+    this.thenOpen(url, function () {
+      this.echo(this.getCurrentUrl());
+      this.echo(this.getTitle());
     });
   });
 });
@@ -155,27 +109,31 @@ casper.then( () => {
 
 casper.run();
 /*
-this.thenEvaluate(function (profile) {
-  let office = profile.data 
-  let newItem = document.createElement('LI')
-  let aLink = document.createElement('A')
-  let span = document.createElement('SPAN')
-  let textNode = document.createTextNode(`yadda yadda yadda`) 
-  let list = document.getElementById('universeSelected') 
-
-  newItem.className = office.className
-  newItem.id = office.id
-  newItem.style = office.style
-  aLink.className = 'dragLink'
-  aLink.style = 'cursor:move;'
-  span.className = 'imagelinktext'
-
-  span.appendChild(textNode)
-  aLink.appendChild(span)
-  newItem.appendChild(aLink)
-
-  // Insert <li> before the first child of <ul>
-  list.insertBefore(newItem, list.childNodes[0])   
+this.then(function () {
+  this.echo(profile.id)
+  this.thenEvaluate(function (prof) {
+    let office = prof 
+    let newItem = document.createElement('LI')
+    let aLink = document.createElement('A')
+    let span = document.createElement('SPAN')
+    let textNode = document.createTextNode(`yadda yadda yadda`) 
+    let list = document.getElementById('universeSelected') 
+  
+    newItem.className = office.className
+    newItem.id = office.id
+    newItem.style = office.style
+    aLink.className = 'dragLink'
+    aLink.style = 'cursor:move;'
+    span.className = 'imagelinktext'
+  
+    span.appendChild(textNode)
+    aLink.appendChild(span)
+    newItem.appendChild(aLink)
+  
+    // Insert <li> before the first child of <ul>
+    list.insertBefore(newItem, list.childNodes[0])   
+    
+  }, profile)
    this.then(function () {
     this.echo('===> clicking RUN')
     this.click('input[name="review"]')
@@ -202,5 +160,5 @@ this.thenEvaluate(function (profile) {
     this.echo(text)
     fs.write('export_jobs.text', text, 'w')
   })
- }, profile)
+  })
 */

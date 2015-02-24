@@ -13,6 +13,7 @@ var _ = require("lodash");
 var chalk = require("chalk");
 var BOOTH_BASE_NAME = "ems_polling_booth";
 var PRIVATE_DETAILS = "../../.privateDetails.json";
+var PROFILE_DETAILS = "../../profileDetails.json";
 var htmlparser = require("htmlparser2");
 var Parser = require("parse5").Parser;
 var userEmail = undefined;
@@ -25,34 +26,58 @@ fs.readFile(PRIVATE_DETAILS, function (err, data) {
   userEmail = pDetails.userEmail;
   userPass = pDetails.userPass;
 
-  scraperBegin();
+  scrapeForAvailableProfiles();
 });
 
-var scraperBegin = function () {
-  var districts = {
-    buninyong: "1465" };
+var scrapeForAvailableProfiles = function () {
+  var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + "enScraper_getProfiles_es6_babelled.js";
 
-  _.forEach(districts, function (val, key) {
-    var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--boothId=" + val + " ") + ("--district=" + key + " ") + "enScraper_es6_babelled.js";
-
-    console.log(chalk.bgGreen("===> calling enScraper.js using casperjs"));
-    console.log(cmd);
-
-    beginAScrape(cmd);
-  });
-};
-
-var beginAScrape = function (cmd) {
+  console.log(chalk.bgGreen("===> casperjs: enScraper_getProfiles.js"));
+  console.log(cmd);
 
   exec(cmd, {}, function (err, stdout, stderr) {
     if (err) throw err;
-    console.log("in exec callback");
+    console.log("scrapeForAvailableProfiles, in exec callback");
     console.log(stdout);
+    getProfileDetails();
   });
 };
 
-var readScrapeFiles = function () {
+var getProfileDetails = function () {
+  fs.readFile(PROFILE_DETAILS, function (err, data) {
+    if (err) throw err;
+    fs.exists(PROFILE_DETAILS, function (exists) {
+      if (exists) {
+        var pDetails = JSON.parse(data);
+        scrapeProfiles(pDetails);
+      } else {
+        throw new Error("ERROR: profileDetails.json does not exits.");
+      }
+    });
+  });
+};
 
+var scrapeProfiles = function (pDetails) {
+  for (var _iterator = pDetails.entries()[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
+    (function () {
+      var entry = _step.value;
+
+      var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--profClassName=\"" + entry[1].className + "\" ") + ("--profId=" + entry[1].id + " ") + ("--profStyle=" + JSON.stringify(entry[1].style) + " ") + "enScraper_singleProfile_es6_babelled.js";
+
+      setTimeout(function () {
+        console.log(chalk.bgGreen("===> casperjs: enScraper_singleProfile_es6_babelled.js"));
+        console.log(cmd);
+        exec(cmd, {}, function (err, stdout, stderr) {
+          if (err) throw err;
+          console.log("scrapeProfiles: in exec callback");
+          console.log(stdout);
+        });
+      }, entry[0] * 3000);
+    })();
+  }
+};
+
+var readScrapeFiles = function () {
   //TODO: loop for all scraped files
   fs.readFile("scrapes/polling_booth_buninyong.txt", { encoding: "utf-8" }, function (e, d) {
     if (e) throw e;
@@ -97,15 +122,3 @@ var createTheCsvFile = function (reduced) {
     console.log("SUCCESS: save the test.csv to disk");
   });
 };
-//readScrapeFiles()
-
-//'bellarine'      : '1454',
-//'melton'         : '1497',
-//'polwath'        : '1516',
-//'lowan'          : '1493',
-//'geelong'        : '1482',
-//'lara'           : '1492',
-//'ripon'          : '1521',
-//'southbarwon'    : '1525',
-//'southwestcoast' : '1526',
-//'wendouree'      : '1533'

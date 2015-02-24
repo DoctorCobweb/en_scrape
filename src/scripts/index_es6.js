@@ -14,6 +14,7 @@ let _               = require('lodash')
 let chalk           = require('chalk')
 let BOOTH_BASE_NAME = 'ems_polling_booth'
 let PRIVATE_DETAILS = '../../.privateDetails.json'
+let PROFILE_DETAILS = '../../profileDetails.json'
 let htmlparser      = require('htmlparser2')
 let Parser          = require('parse5').Parser
 let userEmail
@@ -27,51 +28,64 @@ fs.readFile(PRIVATE_DETAILS, (err, data) => {
   userEmail    = pDetails.userEmail
   userPass     = pDetails.userPass
 
-  scraperBegin()
-  //readScrapeFiles()
+  scrapeForAvailableProfiles()
 })
 
-let scraperBegin = () => {
-  let districts = {
-    'buninyong'      : '1465',
-    //'bellarine'      : '1454',
-    //'melton'         : '1497',
-    //'polwath'        : '1516',
-    //'lowan'          : '1493',
-    //'geelong'        : '1482',
-    //'lara'           : '1492',
-    //'ripon'          : '1521',
-    //'southbarwon'    : '1525',
-    //'southwestcoast' : '1526',
-    //'wendouree'      : '1533'
-  }
+let scrapeForAvailableProfiles = () => {
+  let cmd = 'casperjs --engine=slimerjs '
+          + `--userEmail=${userEmail} `
+          + `--userPass=${userPass} `
+	  + 'enScraper_getProfiles_es6_babelled.js'
+   
+  console.log(chalk.bgGreen('===> casperjs: enScraper_getProfiles.js'))
+  console.log(cmd)
 
-  _.forEach(districts, (val, key) => {
+  exec(cmd, {}, (err, stdout, stderr) => {
+    if (err) throw err
+    console.log('scrapeForAvailableProfiles, in exec callback') 
+    console.log(stdout) 
+    getProfileDetails()
+  })
+}
+
+let getProfileDetails = () => {
+  fs.readFile(PROFILE_DETAILS, (err, data) => {
+    if (err) throw err
+    fs.exists(PROFILE_DETAILS, function (exists) {
+      if (exists) {
+        let pDetails = JSON.parse(data)
+        scrapeProfiles(pDetails)
+      } else {
+        throw new Error('ERROR: profileDetails.json does not exits.') 
+      }
+    })
+  })
+}
+
+let scrapeProfiles= (pDetails) => {
+  for (let entry of pDetails.entries()) {
     let cmd = 'casperjs --engine=slimerjs '
 	    + `--userEmail=${userEmail} `
             + `--userPass=${userPass} `
-	    + `--boothId=${val} `
-	    + `--district=${key} `
-	    + 'enScraper_es6_babelled.js'
+	    + `--profClassName="${entry[1].className}" `
+	    + `--profId=${entry[1].id} `
+	    + `--profStyle=${JSON.stringify(entry[1].style)} `
+	    + 'enScraper_singleProfile_es6_babelled.js'
    
-    console.log(chalk.bgGreen('===> calling enScraper.js using casperjs'))
-    console.log(cmd)
-
-    beginAScrape(cmd)
-  })
-}
-
-let beginAScrape = (cmd) => {
+    setTimeout(function () {
+      console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
+      console.log(cmd)
+      exec(cmd, {}, (err, stdout, stderr) => {
+        if (err) throw err
+        console.log('scrapeProfiles: in exec callback') 
+        console.log(stdout) 
+      })
+    }, entry[0] * 3000)
   
-  exec(cmd, {}, (err, stdout, stderr) => {
-    if (err) throw err
-    console.log('in exec callback') 
-    console.log(stdout) 
-  })
+  }
 }
 
 let readScrapeFiles= () => {
-
   //TODO: loop for all scraped files
   fs.readFile('scrapes/polling_booth_buninyong.txt', {encoding:'utf-8'}, (e, d) => {
     if (e) throw e
