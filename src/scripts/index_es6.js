@@ -11,6 +11,7 @@ let exec            = require('child_process').exec
 let request         = require('request')
 let csv             = require('csv')
 let _               = require('lodash')
+let async           = require('async')
 let chalk           = require('chalk')
 let BOOTH_BASE_NAME = 'ems_polling_booth'
 let PRIVATE_DETAILS = '../../.privateDetails.json'
@@ -62,8 +63,8 @@ let getProfileDetails = () => {
   })
 }
 
-let scrapeProfiles= (pDetails) => {
-  for (let entry of pDetails.entries()) {
+let makeCasperJob = (entry) => {
+  return (cb) => {
     let cmd = 'casperjs --engine=slimerjs '
 	    + `--userEmail=${userEmail} `
             + `--userPass=${userPass} `
@@ -71,7 +72,7 @@ let scrapeProfiles= (pDetails) => {
 	    + `--profId=${entry[1].id} `
 	    + `--profStyle=${JSON.stringify(entry[1].style)} `
 	    + 'enScraper_singleProfile_es6_babelled.js'
-   
+
     setTimeout(function () {
       console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
       console.log(cmd)
@@ -79,10 +80,22 @@ let scrapeProfiles= (pDetails) => {
         if (err) throw err
         console.log('scrapeProfiles: in exec callback') 
         console.log(stdout) 
+        cb(null, stdout)
       })
     }, entry[0] * 3000)
-  
   }
+}
+
+let scrapeProfiles = (pDetails) => {
+  let jobs = []
+  for (let entry of pDetails.entries()) {
+    jobs.push(makeCasperJob(entry))
+  }
+  async.parallel(jobs, function (err, results) {
+    if (err) throw err
+    console.log('ASYNC PARALLEL DONE...') 
+    console.log(results) 
+  })
 }
 
 let readScrapeFiles= () => {

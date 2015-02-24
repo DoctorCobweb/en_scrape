@@ -10,6 +10,7 @@ var exec = require("child_process").exec;
 var request = require("request");
 var csv = require("csv");
 var _ = require("lodash");
+var async = require("async");
 var chalk = require("chalk");
 var BOOTH_BASE_NAME = "ems_polling_booth";
 var PRIVATE_DETAILS = "../../.privateDetails.json";
@@ -57,24 +58,35 @@ var getProfileDetails = function () {
   });
 };
 
+var makeCasperJob = function (entry) {
+  return function (cb) {
+    var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--profClassName=\"" + entry[1].className + "\" ") + ("--profId=" + entry[1].id + " ") + ("--profStyle=" + JSON.stringify(entry[1].style) + " ") + "enScraper_singleProfile_es6_babelled.js";
+
+    setTimeout(function () {
+      console.log(chalk.bgGreen("===> casperjs: enScraper_singleProfile_es6_babelled.js"));
+      console.log(cmd);
+      exec(cmd, {}, function (err, stdout, stderr) {
+        if (err) throw err;
+        console.log("scrapeProfiles: in exec callback");
+        console.log(stdout);
+        cb(null, stdout);
+      });
+    }, entry[0] * 3000);
+  };
+};
+
 var scrapeProfiles = function (pDetails) {
+  var jobs = [];
   for (var _iterator = pDetails.entries()[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
-    (function () {
-      var entry = _step.value;
+    var entry = _step.value;
 
-      var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--profClassName=\"" + entry[1].className + "\" ") + ("--profId=" + entry[1].id + " ") + ("--profStyle=" + JSON.stringify(entry[1].style) + " ") + "enScraper_singleProfile_es6_babelled.js";
-
-      setTimeout(function () {
-        console.log(chalk.bgGreen("===> casperjs: enScraper_singleProfile_es6_babelled.js"));
-        console.log(cmd);
-        exec(cmd, {}, function (err, stdout, stderr) {
-          if (err) throw err;
-          console.log("scrapeProfiles: in exec callback");
-          console.log(stdout);
-        });
-      }, entry[0] * 3000);
-    })();
+    jobs.push(makeCasperJob(entry));
   }
+  async.parallel(jobs, function (err, results) {
+    if (err) throw err;
+    console.log("ASYNC PARALLEL DONE...");
+    console.log(results);
+  });
 };
 
 var readScrapeFiles = function () {
