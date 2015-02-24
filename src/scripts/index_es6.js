@@ -73,7 +73,7 @@ let makeCasperJob = (entry) => {
 	    + `--profStyle=${JSON.stringify(entry[1].style)} `
 	    + 'enScraper_singleProfile_es6_babelled.js'
 
-    setTimeout(function () {
+    setTimeout( () => {
       console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
       console.log(cmd)
       exec(cmd, {}, (err, stdout, stderr) => {
@@ -91,13 +91,18 @@ let scrapeProfiles = (pDetails) => {
   for (let entry of pDetails.entries()) {
     jobs.push(makeCasperJob(entry))
   }
-  async.parallel(jobs, function (err, results) {
+  async.parallel(jobs, (err, results) => {
     if (err) throw err
     console.log('ASYNC PARALLEL DONE...') 
     console.log(results) 
   })
 }
 
+
+
+
+
+// LATER STUFF
 let readScrapeFiles= () => {
   //TODO: loop for all scraped files
   fs.readFile('scrapes/polling_booth_buninyong.txt', {encoding:'utf-8'}, (e, d) => {

@@ -89,6 +89,7 @@ var scrapeProfiles = function (pDetails) {
   });
 };
 
+// LATER STUFF
 var readScrapeFiles = function () {
   //TODO: loop for all scraped files
   fs.readFile("scrapes/polling_booth_buninyong.txt", { encoding: "utf-8" }, function (e, d) {
