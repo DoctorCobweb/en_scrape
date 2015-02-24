@@ -74,6 +74,7 @@ casper.then(function() {
 let extractProfileInfo = () => {
   //should try to always find all the available profiles to export. 
   let profilesDOM = document.querySelectorAll('ul#universeAvailable li')
+
   let profileDetails = _.reduce(profilesDOM, (acc, val, idx) => {
     let profile = {}
     profile.className = val.className
@@ -82,17 +83,73 @@ let extractProfileInfo = () => {
     acc.push(profile)
     return acc 
   }, [])
-  
+
   return profileDetails
 }
 
 casper.then(function () {
   let profileDetails = this.evaluate(extractProfileInfo)
 
-  this.eachThen(profileDetails, function (response) {
-    this.echo(response.data.id)
+  this.each(profileDetails, function (self, profile) {
+    this.then(function () {
+      this.echo(profile.id)
+      this.thenEvaluate(function (prof) {
+        let office = prof 
+        let newItem = document.createElement('LI')
+        let aLink = document.createElement('A')
+        let span = document.createElement('SPAN')
+        let textNode = document.createTextNode(`yadda yadda yadda`) 
+        let list = document.getElementById('universeSelected') 
+      
+        newItem.className = office.className
+        newItem.id = office.id
+        newItem.style = office.style
+        aLink.className = 'dragLink'
+        aLink.style = 'cursor:move;'
+        span.className = 'imagelinktext'
+      
+        span.appendChild(textNode)
+        aLink.appendChild(span)
+        newItem.appendChild(aLink)
+      
+        // Insert <li> before the first child of <ul>
+        list.insertBefore(newItem, list.childNodes[0])   
+        
+      }, profile)
+
+      this.then(function () {
+        this.echo('===> clicking RUN')
+        this.click('input[name="review"]')
+      })
+      this.then(function () {
+        this.echo('===> SHOULD BE REVIEW page. we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        //this.echo(this.getPageContent())
+        this.click('input[name="export"]')
+      })
+      this.then(function () {
+        this.echo('===> clicking OK in add ons...we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        this.click('div#exportAddOnsDiv input[value="OK"]')
+      })
+      this.then(function () {
+        this.echo('===> SHOULD BE AFTER EXPORTING we are at webpage:')
+        this.echo(this.getCurrentUrl())
+        this.echo(this.getTitle())
+        //this.echo(this.getPageContent())
+        let text = this.fetchText('table.resultListTable td')
+        this.echo(text)
+        fs.write('export_jobs.text', text, 'w')
+      })
+
+
+
+    })
+
+    /*
     this.thenEvaluate(function (profile) {
-      //let office = profileDetails[1]
       let office = profile.data 
       let newItem = document.createElement('LI')
       let aLink = document.createElement('A')
@@ -142,7 +199,7 @@ casper.then(function () {
       })
 
     }, profile)
-
+    */
 
   })
 
