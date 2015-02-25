@@ -16,6 +16,7 @@ let chalk           = require('chalk')
 let BOOTH_BASE_NAME = 'ems_polling_booth'
 let PRIVATE_DETAILS = '../../.privateDetails.json'
 let PROFILE_DETAILS = '../../profileDetails.json'
+let DATA_DIR        = '../data/'
 let htmlparser      = require('htmlparser2')
 let Parser          = require('parse5').Parser
 let userEmail
@@ -29,7 +30,9 @@ fs.readFile(PRIVATE_DETAILS, (err, data) => {
   userEmail    = pDetails.userEmail
   userPass     = pDetails.userPass
 
-  scrapeForAvailableProfiles()
+  //scrapeForAvailableProfiles()
+  matchJobsToProfiles() 
+
 })
 
 let scrapeForAvailableProfiles = () => {
@@ -93,8 +96,41 @@ let scrapeProfiles = (pDetails) => {
   }
   async.parallel(jobs, (err, results) => {
     if (err) throw err
-    console.log('ASYNC PARALLEL DONE...') 
-    console.log(results) 
+    console.log('ASYNC PARALLEL DONE: scrapeProfiles export. Need to download still.') 
+    //console.log(results) 
+    //
+    //look at all the export_....txt files to get job numbers for each profile id
+    //must ensure that there are correct number of export...txt files corresponding to
+    //number of profiles obtained in original scrapeForAvailableProfiles
+    matchJobsToProfiles()
+  })
+}
+
+let matchJobsToProfiles = () => {
+  //TODO: further error checking for values in arrays extracted from files.
+  fs.readdir(DATA_DIR, (err, files) => {
+    if (err) throw err
+    if (!files.length) throw new Error('ERROR: DATA_DIR is empty')
+    let cleanedInfo =  _.chain(files)
+      .reduce((acc, val, idx) => {
+        let data = fs.readFileSync(`${DATA_DIR}${val}`, {encoding: 'utf-8'})
+        if (!data) throw err
+        let info = {}
+        info.jobInfo = data,
+        info.profileInfo = val
+        acc.push(info)
+        return acc
+       },[])
+      .map((val, idx) => {
+        let jobArr = val.jobInfo.trim().split(' ')
+        let profArr = val.profileInfo.split('_') 
+        let cleaned = {}
+        cleaned.jobInfo = jobArr[2].slice(1)
+        cleaned.profInfo = profArr[profArr.length-2]
+        return cleaned
+       })
+      .values()
+      console.log(cleanedInfo)
   })
 }
 

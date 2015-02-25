@@ -15,6 +15,7 @@ var chalk = require("chalk");
 var BOOTH_BASE_NAME = "ems_polling_booth";
 var PRIVATE_DETAILS = "../../.privateDetails.json";
 var PROFILE_DETAILS = "../../profileDetails.json";
+var DATA_DIR = "../data/";
 var htmlparser = require("htmlparser2");
 var Parser = require("parse5").Parser;
 var userEmail = undefined;
@@ -27,7 +28,8 @@ fs.readFile(PRIVATE_DETAILS, function (err, data) {
   userEmail = pDetails.userEmail;
   userPass = pDetails.userPass;
 
-  scrapeForAvailableProfiles();
+  //scrapeForAvailableProfiles()
+  matchJobsToProfiles();
 });
 
 var scrapeForAvailableProfiles = function () {
@@ -84,8 +86,37 @@ var scrapeProfiles = function (pDetails) {
   }
   async.parallel(jobs, function (err, results) {
     if (err) throw err;
-    console.log("ASYNC PARALLEL DONE...");
-    console.log(results);
+    console.log("ASYNC PARALLEL DONE: scrapeProfiles export. Need to download still.");
+    //console.log(results)
+    //
+    //look at all the export_....txt files to get job numbers for each profile id
+    //must ensure that there are correct number of export...txt files corresponding to
+    //number of profiles obtained in original scrapeForAvailableProfiles
+    matchJobsToProfiles();
+  });
+};
+
+var matchJobsToProfiles = function () {
+  //TODO: further error checking for values in arrays extracted from files.
+  fs.readdir(DATA_DIR, function (err, files) {
+    if (err) throw err;
+    if (!files.length) throw new Error("ERROR: DATA_DIR is empty");
+    var cleanedInfo = _.chain(files).reduce(function (acc, val, idx) {
+      var data = fs.readFileSync("" + DATA_DIR + "" + val, { encoding: "utf-8" });
+      if (!data) throw err;
+      var info = {};
+      info.jobInfo = data, info.profileInfo = val;
+      acc.push(info);
+      return acc;
+    }, []).map(function (val, idx) {
+      var jobArr = val.jobInfo.trim().split(" ");
+      var profArr = val.profileInfo.split("_");
+      var cleaned = {};
+      cleaned.jobInfo = jobArr[2].slice(1);
+      cleaned.profInfo = profArr[profArr.length - 2];
+      return cleaned;
+    }).values();
+    console.log(cleanedInfo);
   });
 };
 

@@ -2,8 +2,7 @@
 
 let casper = require('casper').create({
   clientScripts: ['../../node_modules/lodash/dist/lodash.min.js',
-                   '../../node_modules/jquery/dist/jquery.min.js'
-                 ]})
+                   '../../node_modules/jquery/dist/jquery.min.js']})
 let utils = require('utils')
 let fs = require('fs') //fs here is a phantomjs module, not nodejs fs module
 let userEmail = casper.cli.get('userEmail')
@@ -119,7 +118,7 @@ casper.then(function () {
   //this.echo(this.getPageContent())
   let text = this.fetchText('table.resultListTable td')
   this.echo(text)
-  fs.write(`export_${profId}_${(new Date()).toJSON()}.txt`, text, 'w')
+  fs.write(`../data/export_${profId}_${(new Date()).toJSON()}.txt`, text, 'w')
 })
 
 /*
