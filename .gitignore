@@ -5,3 +5,4 @@ export_jobs.text
 .DS_Store
 profileDetails.json
 *.txt
+dest/data/

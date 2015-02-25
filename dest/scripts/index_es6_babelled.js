@@ -23,21 +23,17 @@ var userPass = undefined;
 
 fs.readFile(PRIVATE_DETAILS, function (err, data) {
   if (err) throw err;
-
   var pDetails = JSON.parse(data);
   userEmail = pDetails.userEmail;
   userPass = pDetails.userPass;
-
   //scrapeForAvailableProfiles()
   matchJobsToProfiles();
 });
 
 var scrapeForAvailableProfiles = function () {
   var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + "enScraper_getProfiles_es6_babelled.js";
-
   console.log(chalk.bgGreen("===> casperjs: enScraper_getProfiles.js"));
   console.log(cmd);
-
   exec(cmd, {}, function (err, stdout, stderr) {
     if (err) throw err;
     console.log("scrapeForAvailableProfiles, in exec callback");
@@ -63,7 +59,6 @@ var getProfileDetails = function () {
 var makeCasperJob = function (entry) {
   return function (cb) {
     var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--profClassName=\"" + entry[1].className + "\" ") + ("--profId=" + entry[1].id + " ") + ("--profStyle=" + JSON.stringify(entry[1].style) + " ") + "enScraper_singleProfile_es6_babelled.js";
-
     setTimeout(function () {
       console.log(chalk.bgGreen("===> casperjs: enScraper_singleProfile_es6_babelled.js"));
       console.log(cmd);
@@ -104,19 +99,50 @@ var matchJobsToProfiles = function () {
     var cleanedInfo = _.chain(files).reduce(function (acc, val, idx) {
       var data = fs.readFileSync("" + DATA_DIR + "" + val, { encoding: "utf-8" });
       if (!data) throw err;
-      var info = {};
-      info.jobInfo = data, info.profileInfo = val;
-      acc.push(info);
+      var obj = {};
+      obj.jobInfo = data, obj.profileInfo = val;
+      acc.push(obj);
       return acc;
     }, []).map(function (val, idx) {
       var jobArr = val.jobInfo.trim().split(" ");
       var profArr = val.profileInfo.split("_");
-      var cleaned = {};
-      cleaned.jobInfo = jobArr[2].slice(1);
-      cleaned.profInfo = profArr[profArr.length - 2];
-      return cleaned;
-    }).values();
-    console.log(cleanedInfo);
+      var c = {};
+      c.jobId = jobArr[2].slice(1);
+      c.profId = profArr[profArr.length - 2];
+      return c;
+    }).values().__wrapped__;
+    //console.log(cleanedInfo)
+    eachProfileData(cleanedInfo);
+  });
+};
+
+var makeCasperDownload = function (entry) {
+  return function (cb) {
+    var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + userEmail + " ") + ("--userPass=" + userPass + " ") + ("--enJobId=" + entry.jobId + " ") + ("--enProfId=" + entry.profId + " ") + "enScraper_downloadProfile_es6_babelled.js";
+    setTimeout(function () {
+      console.log(chalk.bgGreen("===> casperjs: enScraper_singleProfile_es6_babelled.js"));
+      console.log(cmd);
+      exec(cmd, {}, function (err, stdout, stderr) {
+        if (err) throw err;
+        console.log("makeCasperDownload: in exec callback");
+        console.log(stdout);
+        cb(null, stdout);
+      });
+    }, entry[0] * 3000);
+  };
+};
+
+var eachProfileData = function (cInfo) {
+  console.log(cInfo);
+  var jobs = [];
+  for (var _iterator = cInfo[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
+    var entry = _step.value;
+
+    jobs.push(makeCasperDownload(entry));
+  }
+  async.parallel(jobs, function (err, results) {
+    if (err) throw err;
+    console.log("ASYNC PARALLEL DONE: downloaded profiles.");
   });
 };
 
@@ -166,3 +192,9 @@ var createTheCsvFile = function (reduced) {
     console.log("SUCCESS: save the test.csv to disk");
   });
 };
+//console.log(results)
+//
+//look at all the export_....txt files to get job numbers for each profile id
+//must ensure that there are correct number of export...txt files corresponding to
+//number of profiles obtained in original scrapeForAvailableProfiles
+//matchJobsToProfiles()

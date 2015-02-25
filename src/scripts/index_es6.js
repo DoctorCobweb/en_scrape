@@ -25,14 +25,11 @@ let userPass
 
 fs.readFile(PRIVATE_DETAILS, (err, data) => {
   if (err) throw err
-
   let pDetails = JSON.parse(data)
   userEmail    = pDetails.userEmail
   userPass     = pDetails.userPass
-
   //scrapeForAvailableProfiles()
   matchJobsToProfiles() 
-
 })
 
 let scrapeForAvailableProfiles = () => {
@@ -40,10 +37,8 @@ let scrapeForAvailableProfiles = () => {
           + `--userEmail=${userEmail} `
           + `--userPass=${userPass} `
 	  + 'enScraper_getProfiles_es6_babelled.js'
-   
   console.log(chalk.bgGreen('===> casperjs: enScraper_getProfiles.js'))
   console.log(cmd)
-
   exec(cmd, {}, (err, stdout, stderr) => {
     if (err) throw err
     console.log('scrapeForAvailableProfiles, in exec callback') 
@@ -75,7 +70,6 @@ let makeCasperJob = (entry) => {
 	    + `--profId=${entry[1].id} `
 	    + `--profStyle=${JSON.stringify(entry[1].style)} `
 	    + 'enScraper_singleProfile_es6_babelled.js'
-
     setTimeout( () => {
       console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
       console.log(cmd)
@@ -115,23 +109,64 @@ let matchJobsToProfiles = () => {
       .reduce((acc, val, idx) => {
         let data = fs.readFileSync(`${DATA_DIR}${val}`, {encoding: 'utf-8'})
         if (!data) throw err
-        let info = {}
-        info.jobInfo = data,
-        info.profileInfo = val
-        acc.push(info)
+        let obj = {}
+        obj.jobInfo = data,
+        obj.profileInfo = val
+        acc.push(obj)
         return acc
        },[])
       .map((val, idx) => {
         let jobArr = val.jobInfo.trim().split(' ')
         let profArr = val.profileInfo.split('_') 
-        let cleaned = {}
-        cleaned.jobInfo = jobArr[2].slice(1)
-        cleaned.profInfo = profArr[profArr.length-2]
-        return cleaned
+        let c = {}
+        c.jobId = jobArr[2].slice(1)
+        c.profId= profArr[profArr.length-2]
+        return c
        })
-      .values()
-      console.log(cleanedInfo)
+      .values().__wrapped__
+      //console.log(cleanedInfo)
+      eachProfileData(cleanedInfo)
   })
+}
+
+let makeCasperDownload = (entry) => {
+  return (cb) => {
+    let cmd = 'casperjs --engine=slimerjs '
+	    + `--userEmail=${userEmail} `
+            + `--userPass=${userPass} `
+	    + `--enJobId=${entry.jobId} `
+	    + `--enProfId=${entry.profId} `
+	    + 'enScraper_downloadProfile_es6_babelled.js'
+    setTimeout( () => {
+      console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
+      console.log(cmd)
+      exec(cmd, {}, (err, stdout, stderr) => {
+        if (err) throw err
+        console.log('makeCasperDownload: in exec callback') 
+        console.log(stdout) 
+        cb(null, stdout)
+      })
+    }, entry[0] * 3000)
+  }
+}
+
+let eachProfileData = (cInfo) => {
+  console.log(cInfo)
+  let jobs = []
+  for (let entry of cInfo) {
+    jobs.push(makeCasperDownload(entry))
+  }
+  async.parallel(jobs, (err, results) => {
+    if (err) throw err
+    console.log('ASYNC PARALLEL DONE: downloaded profiles.') 
+    //console.log(results) 
+    //
+    //look at all the export_....txt files to get job numbers for each profile id
+    //must ensure that there are correct number of export...txt files corresponding to
+    //number of profiles obtained in original scrapeForAvailableProfiles
+    //matchJobsToProfiles()
+  })
+
 }
 
 
