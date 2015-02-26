@@ -29,7 +29,6 @@ casper.then(function () {
   this.echo("===> we are at webpage:");
   this.echo(this.getCurrentUrl());
   this.echo(this.getTitle());
-
   if (this.exists("form[name=\"accountLF\"]")) {
     this.fillSelectors("form[name=\"accountLF\"]", {
       "input[name=\"_f_0\"]": userEmail,
@@ -45,7 +44,6 @@ casper.thenOpen(EN_EXPORT, function () {
   this.echo("===> we are at webpage:");
   this.echo(this.getCurrentUrl());
   this.echo(this.getTitle());
-
   if (this.exists("input[name=\"profiles\"]")) {
     this.echo("===> clicking profile button");
     this.click("input[name=\"profiles\"]");
@@ -58,7 +56,6 @@ casper.thenOpen(EN_EXPORT, function () {
 casper.then(function () {
   this.echo("===> successfully clicked profile button");
   this.echo("===> attempting to click on select users button");
-
   if (this.exists("input[name=\"Submit\"]")) {
     this.echo("===> select users button exists. clicking it");
     this.click("input[name=\"Submit\"]");
@@ -74,18 +71,15 @@ casper.thenEvaluate(function (profClassName, profId, profStyle) {
   var span = document.createElement("SPAN");
   var textNode = document.createTextNode("yadda yadda yadda");
   var list = document.getElementById("universeSelected");
-
   newItem.className = profClassName;
   newItem.id = profId;
   newItem.style = profStyle;
   aLink.className = "dragLink";
   aLink.style = "cursor:move;";
   span.className = "imagelinktext";
-
   span.appendChild(textNode);
   aLink.appendChild(span);
   newItem.appendChild(aLink);
-
   // Insert <li> before the first child of <ul>
   list.insertBefore(newItem, list.childNodes[0]);
 }, profClassName, profId, profStyle);
@@ -118,16 +112,5 @@ casper.then(function () {
   this.echo(text);
   fs.write("../data/export_" + profId + "_" + new Date().toJSON() + ".txt", text, "w");
 });
-
-/*
-//we should stop here. wait for all the exports to be available.
-//
-//in index.js wait. then run this in a separate capserjs file.
-//reconstruct urls and iterate through something of the form:
-casper.then( () => {
-  let url = 'https://ww.e-activist.com/ea-account/action.retrievejobresults.do?ea.job.id=212033&jobType=UDX&requestSource=menu'
-  this.download(url, 'hello.csv')
-})
-*/
 
 casper.run();

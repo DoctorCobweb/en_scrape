@@ -6,54 +6,82 @@
  */
 
 
-let fs              = require('fs')
-let exec            = require('child_process').exec
-let request         = require('request')
-let csv             = require('csv')
-let _               = require('lodash')
-let async           = require('async')
-let chalk           = require('chalk')
-let BOOTH_BASE_NAME = 'ems_polling_booth'
-let PRIVATE_DETAILS = '../../.privateDetails.json'
-let PROFILE_DETAILS = '../../profileDetails.json'
-let DATA_DIR        = '../data/'
-let htmlparser      = require('htmlparser2')
-let Parser          = require('parse5').Parser
-let userEmail
-let userPass
+let fs = require('fs')
+let exec = require('child_process').exec
+let request = require('request')
+let csv = require('csv')
+let _ = require('lodash')
+let async = require('async')
+let chalk = require('chalk')
+let htmlparser = require('htmlparser2')
+let Parser = require('parse5').Parser
+const BOOTH_BASE_NAME = 'ems_polling_booth'
+const PRIVATE_DETAILS = '../../.privateDetails.json'
+const PROFILE_DETAILS = '../../profileDetails.json'
+const DATA_DIR = '../data/'
+const EN_GET_PROFILES = 'enScraper_getProfiles_es6_babelled.js'
+const EN_SINGLE_PROFILES = 'enScraper_singleProfile_es6_babelled.js'
+const EN_DL_PROFILES = 'enScraper_downloadProfile_es6_babelled.js'
 
+let cleanState = (cb) => {
+  fs.readdir(DATA_DIR, (err, files) => {
+    if (!files.length) {
+      cb(null, 'dest/data dir is already empty. good.')
+    } else {
+      exec(`rm ${DATA_DIR}*`, (err, stdout, stderr) => {
+        if (err) throw new Error('ERROR: could not clean data folder.')		    
+        cb(null, 'cleaned dest/data dir.')
+      }) 
+    }
+  })
+}
 
-fs.readFile(PRIVATE_DETAILS, (err, data) => {
-  if (err) throw err
-  let pDetails = JSON.parse(data)
-  userEmail    = pDetails.userEmail
-  userPass     = pDetails.userPass
-  //scrapeForAvailableProfiles()
-  matchJobsToProfiles() 
-})
+let enAccountDetails = (cb) => {
+  fs.readFile(PRIVATE_DETAILS, (err, data) => {
+    if (err) throw err
+    let pDetails = JSON.parse(data)
+    //userEmail = pDetails.userEmail
+    //userPass = pDetails.userPass
+    let obj = {}
+    obj.userEmail = pDetails.userEmail
+    obj.userPass = pDetails.userPass
+    cb(null, obj) 
+  })
+}
 
-let scrapeForAvailableProfiles = () => {
+let init = (() => {
+  console.log('init')
+  async.series([enAccountDetails, cleanState], (err, data) => {
+    if (err) throw new Error('ERROR: start() fail.') 
+      scrapeForAvailableProfiles(data[0])
+      //matchJobsToProfiles(data[0]) 
+      console.log('start success.')
+      console.log(data)
+  })
+})()
+
+let scrapeForAvailableProfiles = (uDetails) => {
   let cmd = 'casperjs --engine=slimerjs '
-          + `--userEmail=${userEmail} `
-          + `--userPass=${userPass} `
-	  + 'enScraper_getProfiles_es6_babelled.js'
-  console.log(chalk.bgGreen('===> casperjs: enScraper_getProfiles.js'))
+          + `--userEmail=${uDetails.userEmail} `
+          + `--userPass=${uDetails.userPass} `
+	  + EN_GET_PROFILES
+  console.log(chalk.bgGreen(`===> casperjs: ${EN_GET_PROFILES}`))
   console.log(cmd)
   exec(cmd, {}, (err, stdout, stderr) => {
     if (err) throw err
     console.log('scrapeForAvailableProfiles, in exec callback') 
     console.log(stdout) 
-    getProfileDetails()
+    getProfileDetails(uDetails)
   })
 }
 
-let getProfileDetails = () => {
+let getProfileDetails = (uDetails) => {
   fs.readFile(PROFILE_DETAILS, (err, data) => {
     if (err) throw err
     fs.exists(PROFILE_DETAILS, function (exists) {
       if (exists) {
         let pDetails = JSON.parse(data)
-        scrapeProfiles(pDetails)
+        scrapeProfiles(pDetails, uDetails)
       } else {
         throw new Error('ERROR: profileDetails.json does not exits.') 
       }
@@ -61,32 +89,34 @@ let getProfileDetails = () => {
   })
 }
 
-let makeCasperJob = (entry) => {
+let makeCasperJob = (clargs, scriptName) => {
   return (cb) => {
     let cmd = 'casperjs --engine=slimerjs '
-	    + `--userEmail=${userEmail} `
-            + `--userPass=${userPass} `
-	    + `--profClassName="${entry[1].className}" `
-	    + `--profId=${entry[1].id} `
-	    + `--profStyle=${JSON.stringify(entry[1].style)} `
-	    + 'enScraper_singleProfile_es6_babelled.js'
+	    + clargs.join(' ') + ' '
+	    + scriptName
     setTimeout( () => {
-      console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
+      console.log(chalk.bgGreen(`===> casperjs: ${scriptName}`))
       console.log(cmd)
       exec(cmd, {}, (err, stdout, stderr) => {
         if (err) throw err
-        console.log('scrapeProfiles: in exec callback') 
+        console.log(`in exec callback for ${scriptName}`) 
         console.log(stdout) 
         cb(null, stdout)
       })
-    }, entry[0] * 3000)
+    }, Math.floor(Math.random() * 6) * 10000)
   }
 }
 
-let scrapeProfiles = (pDetails) => {
+let scrapeProfiles = (pDetails, uDetails) => {
   let jobs = []
   for (let entry of pDetails.entries()) {
-    jobs.push(makeCasperJob(entry))
+    let clargs = [] 
+    clargs.push(`--userEmail=${uDetails.userEmail}`)
+    clargs.push(`--userPass=${uDetails.userPass}`)
+    clargs.push(`--profClassName="${entry[1].className}"`)
+    clargs.push(`--profId=${entry[1].id}`)
+    clargs.push(`--profStyle=${JSON.stringify(entry[1].style)}`)
+    jobs.push(makeCasperJob(clargs, EN_SINGLE_PROFILES))
   }
   async.parallel(jobs, (err, results) => {
     if (err) throw err
@@ -96,11 +126,12 @@ let scrapeProfiles = (pDetails) => {
     //look at all the export_....txt files to get job numbers for each profile id
     //must ensure that there are correct number of export...txt files corresponding to
     //number of profiles obtained in original scrapeForAvailableProfiles
-    matchJobsToProfiles()
+    //
+    matchJobsToProfiles(uDetails)
   })
 }
 
-let matchJobsToProfiles = () => {
+let matchJobsToProfiles = (uDetails) => {
   //TODO: further error checking for values in arrays extracted from files.
   fs.readdir(DATA_DIR, (err, files) => {
     if (err) throw err
@@ -125,48 +156,26 @@ let matchJobsToProfiles = () => {
        })
       .values().__wrapped__
       //console.log(cleanedInfo)
-      eachProfileData(cleanedInfo)
+      eachProfileData(cleanedInfo, uDetails)
   })
 }
 
-let makeCasperDownload = (entry) => {
-  return (cb) => {
-    let cmd = 'casperjs --engine=slimerjs '
-	    + `--userEmail=${userEmail} `
-            + `--userPass=${userPass} `
-	    + `--enJobId=${entry.jobId} `
-	    + `--enProfId=${entry.profId} `
-	    + 'enScraper_downloadProfile_es6_babelled.js'
-    setTimeout( () => {
-      console.log(chalk.bgGreen('===> casperjs: enScraper_singleProfile_es6_babelled.js'))
-      console.log(cmd)
-      exec(cmd, {}, (err, stdout, stderr) => {
-        if (err) throw err
-        console.log('makeCasperDownload: in exec callback') 
-        console.log(stdout) 
-        cb(null, stdout)
-      })
-    }, entry[0] * 3000)
-  }
-}
-
-let eachProfileData = (cInfo) => {
+let eachProfileData = (cInfo, uDetails) => {
   console.log(cInfo)
   let jobs = []
   for (let entry of cInfo) {
-    jobs.push(makeCasperDownload(entry))
+    let clargs = []
+    clargs.push(`--userEmail=${uDetails.userEmail}`)
+    clargs.push(`--userPass=${uDetails.userPass}`)
+    clargs.push(`--enJobId=${entry.jobId}`)
+    clargs.push(`--enProfId=${entry.profId}`)
+    jobs.push(makeCasperJob(clargs, EN_DL_PROFILES))
   }
   async.parallel(jobs, (err, results) => {
     if (err) throw err
     console.log('ASYNC PARALLEL DONE: downloaded profiles.') 
     //console.log(results) 
-    //
-    //look at all the export_....txt files to get job numbers for each profile id
-    //must ensure that there are correct number of export...txt files corresponding to
-    //number of profiles obtained in original scrapeForAvailableProfiles
-    //matchJobsToProfiles()
   })
-
 }
 
 
