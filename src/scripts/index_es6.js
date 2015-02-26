@@ -40,8 +40,6 @@ let enAccountDetails = (cb) => {
   fs.readFile(PRIVATE_DETAILS, (err, data) => {
     if (err) throw err
     let pDetails = JSON.parse(data)
-    //userEmail = pDetails.userEmail
-    //userPass = pDetails.userPass
     let obj = {}
     obj.userEmail = pDetails.userEmail
     obj.userPass = pDetails.userPass
@@ -103,7 +101,7 @@ let makeCasperJob = (clargs, scriptName) => {
         console.log(stdout) 
         cb(null, stdout)
       })
-    }, Math.floor(Math.random() * 6) * 10000)
+    }, Math.floor(Math.random() * 11) * 10000)
   }
 }
 
@@ -156,7 +154,14 @@ let matchJobsToProfiles = (uDetails) => {
        })
       .values().__wrapped__
       //console.log(cleanedInfo)
-      eachProfileData(cleanedInfo, uDetails)
+      //
+      //wait for a default 5minutes for all export profiles to be available
+      console.log(chalk.bgRed('SLEEPING FOR 5 MINS: wait for all exports to be downloadable...'))
+      setTimeout(function () {
+	//TODO: check to see if all downloads are actually avail/complete before 
+	//calling thru to eachProfileData func.
+        eachProfileData(cleanedInfo, uDetails)
+      }, 5 * 60 * 1000)
   })
 }
 
