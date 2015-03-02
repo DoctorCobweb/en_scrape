@@ -12,6 +12,7 @@ let EN = 'https://ww.e-activist.com/ea-account/'
 let EN_LOGIN = `${EN}index.jsp`
 let EN_EXPORT = `${EN}auth/selectFilters.jsp?type=user%20data`
 let userAgent = 'Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0'
+let PROF_DETAILS = '../data/profileDetails.json' 
 
 casper.start()
 
@@ -76,6 +77,7 @@ let extractProfileInfo = () => {
   let profileDetails = _.reduce(profilesDOM, (acc, val, idx) => {
     let profile = {}
     //profile.name = document.querySelectorAll(`li#${val.id}`)[0]
+    profile.profName = val.children[0].children[0].innerHTML
     profile.className = val.className
     profile.id = val.id
     profile.style = val.style
@@ -88,7 +90,7 @@ let extractProfileInfo = () => {
 
 casper.then(function () {
   let profileDetails = this.evaluate(extractProfileInfo)
-  fs.write('../../profileDetails.json', JSON.stringify(profileDetails), 'w')
+  fs.write(PROF_DETAILS, JSON.stringify(profileDetails), 'w')
 
 })
 

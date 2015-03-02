@@ -15,24 +15,11 @@ let async = require('async')
 let chalk = require('chalk')
 const BOOTH_BASE_NAME = 'ems_polling_booth'
 const PRIVATE_DETAILS = '../../.privateDetails.json'
-const PROFILE_DETAILS = '../../profileDetails.json'
+const PROFILE_DETAILS = '../data/profileDetails.json'
 const DATA_DIR = '../data/'
 const EN_GET_PROFILES = 'enScraper_getProfiles_es6_babelled.js'
 const EN_SINGLE_PROFILES = 'enScraper_singleProfile_es6_babelled.js'
 const EN_DL_PROFILES = 'enScraper_downloadProfile_es6_babelled.js'
-
-let cleanState = (cb) => {
-  fs.readdir(DATA_DIR, (err, files) => {
-    if (!files.length) {
-      cb(null, 'dest/data dir is already empty. good.')
-    } else {
-      exec(`rm ${DATA_DIR}*`, (err, stdout, stderr) => {
-        if (err) throw new Error('ERROR: could not clean data folder.')		    
-        cb(null, 'cleaned dest/data dir.')
-      }) 
-    }
-  })
-}
 
 let enAccountDetails = (cb) => {
   fs.readFile(PRIVATE_DETAILS, (err, data) => {
@@ -45,18 +32,50 @@ let enAccountDetails = (cb) => {
   })
 }
 
-/*
+let rmDataExportDir = (cb) => {
+  fs.rmdir(`${DATA_DIR}exportInfo`, (err) => {
+    if (err)  cb(err, null)
+    cb(null, 'rm data/exportInfo dir')
+  }) 
+}
+
+let rmDataDir = (cb) => {
+  fs.rmdir(DATA_DIR, (err) => {
+    if (err)  cb(err, null)
+    cb(null, 'rm data dir')
+  }) 
+}
+
+let makeDataDir = (cb) => {
+  fs.mkdir(DATA_DIR, (err) => {
+    if (err)  cb(err, null)
+    cb(null, 'made data dir')
+  }) 
+}
+
+let makeExportInfoDir = (cb) => {
+  fs.mkdir(`${DATA_DIR}exportInfo`, (err) => {
+    if (err)  cb(err, null)
+    cb(null, 'made data/exportInfo dir')
+  }) 
+}
+
 let init = (() => {
   console.log('init')
-  async.series([enAccountDetails, cleanState], (err, data) => {
-    if (err) throw new Error('ERROR: start() fail.') 
+  let setup = [enAccountDetails,
+               rmDataExportDir,
+               rmDataDir, 
+               makeDataDir, 
+               makeExportInfoDir]
+
+  async.series(setup, (err, data) => {
+    if (err) throw err
       scrapeForAvailableProfiles(data[0])
       //matchJobsToProfiles(data[0]) 
       console.log('start success.')
       console.log(data)
   })
 })()
-*/
 
 let scrapeForAvailableProfiles = (uDetails) => {
   let cmd = 'casperjs --engine=slimerjs '
@@ -109,8 +128,10 @@ let scrapeProfiles = (pDetails, uDetails) => {
   let jobs = []
   for (let entry of pDetails.entries()) {
     let clargs = [] 
+    console.log(entry)
     clargs.push(`--userEmail=${uDetails.userEmail}`)
     clargs.push(`--userPass=${uDetails.userPass}`)
+    clargs.push(`--profName="${entry[1].profName}"`)
     clargs.push(`--profClassName="${entry[1].className}"`)
     clargs.push(`--profId=${entry[1].id}`)
     clargs.push(`--profStyle=${JSON.stringify(entry[1].style)}`)
@@ -131,12 +152,13 @@ let scrapeProfiles = (pDetails, uDetails) => {
 
 let matchJobsToProfiles = (uDetails) => {
   //TODO: further error checking for values in arrays extracted from files.
-  fs.readdir(DATA_DIR, (err, files) => {
+  fs.readdir(`${DATA_DIR}exportInfo`, (err, files) => {
     if (err) throw err
-    if (!files.length) throw new Error('ERROR: DATA_DIR is empty')
+    if (!files.length) throw new Error(`ERROR: ${DATA_DIR}exportInfo is empty`)
     let cleanedInfo =  _.chain(files)
       .reduce( (acc, val, idx) => {
-        let data = fs.readFileSync(`${DATA_DIR}${val}`, {encoding: 'utf-8'})
+        let data = fs.readFileSync(`${DATA_DIR}exportInfo/${val}`, {encoding: 'utf-8'})
+
         if (!data) throw err
         let obj = {}
         obj.jobInfo = data,
@@ -146,14 +168,21 @@ let matchJobsToProfiles = (uDetails) => {
        },[])
       .map( (val, idx) => {
         let jobArr = val.jobInfo.trim().split(' ')
-        let profArr = val.profileInfo.split('_') 
+        //let profArr0 = val.profileInfo.split('_') 
+	//profileInfo is of form 'export_***available_universe_profile_1234***_###Scott@@@Ludlam@@@Profile@@@1@@@###.txt'
+	console.log(`val is ${val}`)
+	console.log(`val.profileInfo is ${val.profileInfo}`)
+        let profArr1 = val.profileInfo.split('***') 
+	let profArr1_1 = profArr1[1].split('_')
+	let profArr2 = val.profileInfo.split('###')
         let c = {}
         c.jobId = jobArr[2].slice(1)
-        c.profId= profArr[profArr.length-2]
+        c.profId = profArr1_1[profArr1_1.length - 1]
+        c.profName = profArr2[profArr2.length - 2].split('@@@').join(' ')
         return c
        })
       .values().__wrapped__
-      console.log(chalk.bgBlack(cleanedInfo))
+      console.log(JSON.stringify(cleanedInfo))
       //
       //wait for a default 5minutes for all export profiles to be available
       console.log(chalk.bgRed('SLEEP FOR 5 MINS: wait for exports to be downloadable.'))
@@ -166,7 +195,6 @@ let matchJobsToProfiles = (uDetails) => {
 }
 
 let eachProfileData = (cInfo, uDetails) => {
-  console.log(cInfo)
   let jobs = []
   for (let entry of cInfo) {
     let clargs = []
@@ -179,13 +207,20 @@ let eachProfileData = (cInfo, uDetails) => {
   //finally download records for each profile
   async.parallel(jobs, (err, results) => {
     if (err) throw err
-    console.log('ASYNC PARALLEL DONE: downloaded profiles.') 
+    console.log('ASYNC PARALLEL DONE: profiles should be downloading now or dld??!!.') 
     //console.log(results) 
+    /*
+    setTimeout(function () {
+      console.log(chalk.bgGreen('SLEEP FOR 45 MINS: wait for downloads to finish.'))
+      updateProfiles(cInfo, uDetails)
+    }, 45 * 60 * 1000)
+    */
     updateProfiles(cInfo, uDetails)
   })
 }
 
-let updateProfiles = ((cInfo, uDetails, yadda) => {
+let updateProfiles = (cInfo, uDetails) => {
+  //TODO: check to see if all files have finished downloading
   console.log(chalk.bgBlue('updating all the profiles.')) 
   fs.readdir(DATA_DIR, (err, files) => {
     if (err) throw err
@@ -195,12 +230,22 @@ let updateProfiles = ((cInfo, uDetails, yadda) => {
     }) 
 
     _.forEach(csvExportFileNames, (file) => {
-      updateSingleProfile(file, cInfo, uDetails)  
+      //TODO: don't rely on hardcoded indices, filename pattern
+      let fComps = file.split('_')
+      let fDetails = {}
+      fDetails[fComps[0]] = fComps[1]
+      fDetails[fComps[2]] = fComps[3]
+      fDetails.profName = _.result(_.find(cInfo, (profile) => {
+        return profile.profId === fComps[1] 
+      }), 'profName')
+      console.dir(`updating profile for ${fComps}`)
+      console.dir(`updating profile with ${JSON.stringify(fDetails)}`)
+      updateSingleProfile(file, fDetails, uDetails)  
     })
   }) 
-})(123, 30303, 'asdf')
+}
 
-let updateSingleProfile = (file, cInfo, uDetails) => {
+let updateSingleProfile = (file, fDetails, uDetails) => {
   let parsedHeader = false
   let officeAccessIdx
   fs.createReadStream(`${DATA_DIR}${file}`, {encoding: 'utf8'})
@@ -220,7 +265,8 @@ let updateSingleProfile = (file, cInfo, uDetails) => {
 	  return record
 	} else {
           if (parsedHeader && (officeAccessIdx !== -1)) {
-            record[officeAccessIdx] = 'BLAH'
+            //record[officeAccessIdx] = fDetails.profileId
+            record[officeAccessIdx] = fDetails.profName
             return record	
 	  } else {
 	    console.log('WEIRD ERROR!!!!: ' + officeAccessIdx)
@@ -235,11 +281,6 @@ let updateSingleProfile = (file, cInfo, uDetails) => {
     .pipe(csv.stringify())
     .pipe(fs.createWriteStream(`${DATA_DIR}updated_${file}`), {encoding: 'utf8'})
 }
-
-
-
-
-
 
 
 

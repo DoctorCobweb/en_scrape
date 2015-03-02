@@ -14,24 +14,11 @@ var async = require("async");
 var chalk = require("chalk");
 var BOOTH_BASE_NAME = "ems_polling_booth";
 var PRIVATE_DETAILS = "../../.privateDetails.json";
-var PROFILE_DETAILS = "../../profileDetails.json";
+var PROFILE_DETAILS = "../data/profileDetails.json";
 var DATA_DIR = "../data/";
 var EN_GET_PROFILES = "enScraper_getProfiles_es6_babelled.js";
 var EN_SINGLE_PROFILES = "enScraper_singleProfile_es6_babelled.js";
 var EN_DL_PROFILES = "enScraper_downloadProfile_es6_babelled.js";
-
-var cleanState = function (cb) {
-  fs.readdir(DATA_DIR, function (err, files) {
-    if (!files.length) {
-      cb(null, "dest/data dir is already empty. good.");
-    } else {
-      exec("rm " + DATA_DIR + "*", function (err, stdout, stderr) {
-        if (err) throw new Error("ERROR: could not clean data folder.");
-        cb(null, "cleaned dest/data dir.");
-      });
-    }
-  });
-};
 
 var enAccountDetails = function (cb) {
   fs.readFile(PRIVATE_DETAILS, function (err, data) {
@@ -44,18 +31,46 @@ var enAccountDetails = function (cb) {
   });
 };
 
-/*
-let init = (() => {
-  console.log('init')
-  async.series([enAccountDetails, cleanState], (err, data) => {
-    if (err) throw new Error('ERROR: start() fail.') 
-      scrapeForAvailableProfiles(data[0])
-      //matchJobsToProfiles(data[0]) 
-      console.log('start success.')
-      console.log(data)
-  })
-})()
-*/
+var rmDataExportDir = function (cb) {
+  fs.rmdir("" + DATA_DIR + "exportInfo", function (err) {
+    if (err) cb(err, null);
+    cb(null, "rm data/exportInfo dir");
+  });
+};
+
+var rmDataDir = function (cb) {
+  fs.rmdir(DATA_DIR, function (err) {
+    if (err) cb(err, null);
+    cb(null, "rm data dir");
+  });
+};
+
+var makeDataDir = function (cb) {
+  fs.mkdir(DATA_DIR, function (err) {
+    if (err) cb(err, null);
+    cb(null, "made data dir");
+  });
+};
+
+var makeExportInfoDir = function (cb) {
+  fs.mkdir("" + DATA_DIR + "exportInfo", function (err) {
+    if (err) cb(err, null);
+    cb(null, "made data/exportInfo dir");
+  });
+};
+
+var init = (function () {
+  console.log("init");
+  var setup = [enAccountDetails, rmDataExportDir, rmDataDir, makeDataDir, makeExportInfoDir];
+
+  async.series(setup, function (err, data) {
+    if (err) throw err;
+    scrapeForAvailableProfiles(data[0]);
+    //matchJobsToProfiles(data[0])
+    console.log("start success.");
+    console.log(data);
+  });
+})();
 
 var scrapeForAvailableProfiles = function (uDetails) {
   var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + uDetails.userEmail + " ") + ("--userPass=" + uDetails.userPass + " ") + EN_GET_PROFILES;
@@ -105,8 +120,10 @@ var scrapeProfiles = function (pDetails, uDetails) {
     var entry = _step.value;
 
     var clargs = [];
+    console.log(entry);
     clargs.push("--userEmail=" + uDetails.userEmail);
     clargs.push("--userPass=" + uDetails.userPass);
+    clargs.push("--profName=\"" + entry[1].profName + "\"");
     clargs.push("--profClassName=\"" + entry[1].className + "\"");
     clargs.push("--profId=" + entry[1].id);
     clargs.push("--profStyle=" + JSON.stringify(entry[1].style));
@@ -127,11 +144,12 @@ var scrapeProfiles = function (pDetails, uDetails) {
 
 var matchJobsToProfiles = function (uDetails) {
   //TODO: further error checking for values in arrays extracted from files.
-  fs.readdir(DATA_DIR, function (err, files) {
+  fs.readdir("" + DATA_DIR + "exportInfo", function (err, files) {
     if (err) throw err;
-    if (!files.length) throw new Error("ERROR: DATA_DIR is empty");
+    if (!files.length) throw new Error("ERROR: " + DATA_DIR + "exportInfo is empty");
     var cleanedInfo = _.chain(files).reduce(function (acc, val, idx) {
-      var data = fs.readFileSync("" + DATA_DIR + "" + val, { encoding: "utf-8" });
+      var data = fs.readFileSync("" + DATA_DIR + "exportInfo/" + val, { encoding: "utf-8" });
+
       if (!data) throw err;
       var obj = {};
       obj.jobInfo = data, obj.profileInfo = val;
@@ -139,13 +157,20 @@ var matchJobsToProfiles = function (uDetails) {
       return acc;
     }, []).map(function (val, idx) {
       var jobArr = val.jobInfo.trim().split(" ");
-      var profArr = val.profileInfo.split("_");
+      //let profArr0 = val.profileInfo.split('_')
+      //profileInfo is of form 'export_***available_universe_profile_1234***_###Scott@@@Ludlam@@@Profile@@@1@@@###.txt'
+      console.log("val is " + val);
+      console.log("val.profileInfo is " + val.profileInfo);
+      var profArr1 = val.profileInfo.split("***");
+      var profArr1_1 = profArr1[1].split("_");
+      var profArr2 = val.profileInfo.split("###");
       var c = {};
       c.jobId = jobArr[2].slice(1);
-      c.profId = profArr[profArr.length - 2];
+      c.profId = profArr1_1[profArr1_1.length - 1];
+      c.profName = profArr2[profArr2.length - 2].split("@@@").join(" ");
       return c;
     }).values().__wrapped__;
-    console.log(chalk.bgBlack(cleanedInfo));
+    console.log(JSON.stringify(cleanedInfo));
     //
     //wait for a default 5minutes for all export profiles to be available
     console.log(chalk.bgRed("SLEEP FOR 5 MINS: wait for exports to be downloadable."));
@@ -158,7 +183,6 @@ var matchJobsToProfiles = function (uDetails) {
 };
 
 var eachProfileData = function (cInfo, uDetails) {
-  console.log(cInfo);
   var jobs = [];
   for (var _iterator = cInfo[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) {
     var entry = _step.value;
@@ -173,13 +197,20 @@ var eachProfileData = function (cInfo, uDetails) {
   //finally download records for each profile
   async.parallel(jobs, function (err, results) {
     if (err) throw err;
-    console.log("ASYNC PARALLEL DONE: downloaded profiles.");
+    console.log("ASYNC PARALLEL DONE: profiles should be downloading now or dld??!!.");
     //console.log(results)
+    /*
+    setTimeout(function () {
+      console.log(chalk.bgGreen('SLEEP FOR 45 MINS: wait for downloads to finish.'))
+      updateProfiles(cInfo, uDetails)
+    }, 45 * 60 * 1000)
+    */
     updateProfiles(cInfo, uDetails);
   });
 };
 
-var updateProfiles = (function (cInfo, uDetails, yadda) {
+var updateProfiles = function (cInfo, uDetails) {
+  //TODO: check to see if all files have finished downloading
   console.log(chalk.bgBlue("updating all the profiles."));
   fs.readdir(DATA_DIR, function (err, files) {
     if (err) throw err;
@@ -189,12 +220,22 @@ var updateProfiles = (function (cInfo, uDetails, yadda) {
     });
 
     _.forEach(csvExportFileNames, function (file) {
-      updateSingleProfile(file, cInfo, uDetails);
+      //TODO: don't rely on hardcoded indices, filename pattern
+      var fComps = file.split("_");
+      var fDetails = {};
+      fDetails[fComps[0]] = fComps[1];
+      fDetails[fComps[2]] = fComps[3];
+      fDetails.profName = _.result(_.find(cInfo, function (profile) {
+        return profile.profId === fComps[1];
+      }), "profName");
+      console.dir("updating profile for " + fComps);
+      console.dir("updating profile with " + JSON.stringify(fDetails));
+      updateSingleProfile(file, fDetails, uDetails);
     });
   });
-})(123, 30303, "asdf");
+};
 
-var updateSingleProfile = function (file, cInfo, uDetails) {
+var updateSingleProfile = function (file, fDetails, uDetails) {
   var parsedHeader = false;
   var officeAccessIdx = undefined;
   fs.createReadStream("" + DATA_DIR + "" + file, { encoding: "utf8" }).pipe(csv.parse({ delimiter: "," })).pipe(csv.transform(function (record) {
@@ -205,7 +246,8 @@ var updateSingleProfile = function (file, cInfo, uDetails) {
         return record;
       } else {
         if (parsedHeader && officeAccessIdx !== -1) {
-          record[officeAccessIdx] = "BLAH";
+          //record[officeAccessIdx] = fDetails.profileId
+          record[officeAccessIdx] = fDetails.profName;
           return record;
         } else {
           console.log("WEIRD ERROR!!!!: " + officeAccessIdx);

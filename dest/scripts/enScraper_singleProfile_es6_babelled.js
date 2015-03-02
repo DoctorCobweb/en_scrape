@@ -8,6 +8,7 @@ var utils = require("utils");
 var fs = require("fs"); //fs here is a phantomjs module, not nodejs fs module
 var userEmail = casper.cli.get("userEmail");
 var userPass = casper.cli.get("userPass");
+var profName = casper.cli.get("profName");
 var profClassName = casper.cli.get("profClassName");
 var profId = casper.cli.get("profId");
 var profStyle = casper.cli.get("profStyle");
@@ -110,7 +111,12 @@ casper.then(function () {
   //this.echo(this.getPageContent())
   var text = this.fetchText("table.resultListTable td");
   this.echo(text);
-  fs.write("../data/export_" + profId + "_" + new Date().toJSON() + ".txt", text, "w");
+  //get rid of any underscores because we use them later in index.js for getting
+  //profId value.
+  //also, replace spaces in profile name with @@@
+  var profNameAlt = profName.split("_").join(" ").split(" ").join("@@@");
+  var fileName = "../data/exportInfo/export_***" + profId + "***_###" + profNameAlt + "###.txt";
+  fs.write(fileName, text, "w");
 });
 
 casper.run();

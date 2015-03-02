@@ -12,6 +12,7 @@ var EN = "https://ww.e-activist.com/ea-account/";
 var EN_LOGIN = "" + EN + "index.jsp";
 var EN_EXPORT = "" + EN + "auth/selectFilters.jsp?type=user%20data";
 var userAgent = "Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0";
+var PROF_DETAILS = "../data/profileDetails.json";
 
 casper.start();
 
@@ -72,6 +73,7 @@ var extractProfileInfo = function () {
   var profileDetails = _.reduce(profilesDOM, function (acc, val, idx) {
     var profile = {};
     //profile.name = document.querySelectorAll(`li#${val.id}`)[0]
+    profile.profName = val.children[0].children[0].innerHTML;
     profile.className = val.className;
     profile.id = val.id;
     profile.style = val.style;
@@ -84,7 +86,7 @@ var extractProfileInfo = function () {
 
 casper.then(function () {
   var profileDetails = this.evaluate(extractProfileInfo);
-  fs.write("../../profileDetails.json", JSON.stringify(profileDetails), "w");
+  fs.write(PROF_DETAILS, JSON.stringify(profileDetails), "w");
 });
 
 casper.run();
