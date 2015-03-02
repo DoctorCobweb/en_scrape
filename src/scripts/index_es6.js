@@ -13,8 +13,6 @@ let csv = require('csv')
 let _ = require('lodash')
 let async = require('async')
 let chalk = require('chalk')
-let htmlparser = require('htmlparser2')
-let Parser = require('parse5').Parser
 const BOOTH_BASE_NAME = 'ems_polling_booth'
 const PRIVATE_DETAILS = '../../.privateDetails.json'
 const PROFILE_DETAILS = '../../profileDetails.json'
@@ -47,6 +45,7 @@ let enAccountDetails = (cb) => {
   })
 }
 
+/*
 let init = (() => {
   console.log('init')
   async.series([enAccountDetails, cleanState], (err, data) => {
@@ -57,6 +56,7 @@ let init = (() => {
       console.log(data)
   })
 })()
+*/
 
 let scrapeForAvailableProfiles = (uDetails) => {
   let cmd = 'casperjs --engine=slimerjs '
@@ -135,7 +135,7 @@ let matchJobsToProfiles = (uDetails) => {
     if (err) throw err
     if (!files.length) throw new Error('ERROR: DATA_DIR is empty')
     let cleanedInfo =  _.chain(files)
-      .reduce((acc, val, idx) => {
+      .reduce( (acc, val, idx) => {
         let data = fs.readFileSync(`${DATA_DIR}${val}`, {encoding: 'utf-8'})
         if (!data) throw err
         let obj = {}
@@ -144,7 +144,7 @@ let matchJobsToProfiles = (uDetails) => {
         acc.push(obj)
         return acc
        },[])
-      .map((val, idx) => {
+      .map( (val, idx) => {
         let jobArr = val.jobInfo.trim().split(' ')
         let profArr = val.profileInfo.split('_') 
         let c = {}
@@ -153,10 +153,10 @@ let matchJobsToProfiles = (uDetails) => {
         return c
        })
       .values().__wrapped__
-      //console.log(cleanedInfo)
+      console.log(chalk.bgBlack(cleanedInfo))
       //
       //wait for a default 5minutes for all export profiles to be available
-      console.log(chalk.bgRed('SLEEPING FOR 5 MINS: wait for all exports to be downloadable...'))
+      console.log(chalk.bgRed('SLEEP FOR 5 MINS: wait for exports to be downloadable.'))
       setTimeout(function () {
 	//TODO: check to see if all downloads are actually avail/complete before 
 	//calling thru to eachProfileData func.
@@ -176,12 +176,69 @@ let eachProfileData = (cInfo, uDetails) => {
     clargs.push(`--enProfId=${entry.profId}`)
     jobs.push(makeCasperJob(clargs, EN_DL_PROFILES))
   }
+  //finally download records for each profile
   async.parallel(jobs, (err, results) => {
     if (err) throw err
     console.log('ASYNC PARALLEL DONE: downloaded profiles.') 
     //console.log(results) 
+    updateProfiles(cInfo, uDetails)
   })
 }
+
+let updateProfiles = ((cInfo, uDetails, yadda) => {
+  console.log(chalk.bgBlue('updating all the profiles.')) 
+  fs.readdir(DATA_DIR, (err, files) => {
+    if (err) throw err
+    if (!files.length) throw new Error(`ERROR: ${DATA_DIR} is empty so no csv files`)
+    let csvExportFileNames = _.filter(files, (file) => {
+      return (/.csv$/.test(file) && /^profileId/.test(file))
+    }) 
+
+    _.forEach(csvExportFileNames, (file) => {
+      updateSingleProfile(file, cInfo, uDetails)  
+    })
+  }) 
+})(123, 30303, 'asdf')
+
+let updateSingleProfile = (file, cInfo, uDetails) => {
+  let parsedHeader = false
+  let officeAccessIdx
+  fs.createReadStream(`${DATA_DIR}${file}`, {encoding: 'utf8'})
+    .pipe(csv.parse({delimiter: ','}))
+    .pipe(csv.transform((record) => {
+      try {
+        if ((_.indexOf(record, 'Office Access') !== -1) &&
+	    (_.indexOf(record, 'Date Created') !== -1) &&
+	    (_.indexOf(record, 'Date Modified') !== -1) &&
+	    (_.indexOf(record, 'CiviID') !== -1) &&
+	    (_.indexOf(record, 'Address 1') !== -1) &&
+	    (_.indexOf(record, 'MP Subscription') !== -1)
+	    ) 
+	{
+          parsedHeader = true 
+	  officeAccessIdx = _.indexOf(record, 'Office Access')
+	  return record
+	} else {
+          if (parsedHeader && (officeAccessIdx !== -1)) {
+            record[officeAccessIdx] = 'BLAH'
+            return record	
+	  } else {
+	    console.log('WEIRD ERROR!!!!: ' + officeAccessIdx)
+            //TODO: weird code area. parsedHeader but no Office Access header field
+	    return record 
+	  }
+	}	
+      } catch (e) {
+        throw new Error(e)
+      }
+    }))
+    .pipe(csv.stringify())
+    .pipe(fs.createWriteStream(`${DATA_DIR}updated_${file}`), {encoding: 'utf8'})
+}
+
+
+
+
 
 
 

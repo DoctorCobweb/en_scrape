@@ -12,8 +12,6 @@ var csv = require("csv");
 var _ = require("lodash");
 var async = require("async");
 var chalk = require("chalk");
-var htmlparser = require("htmlparser2");
-var Parser = require("parse5").Parser;
 var BOOTH_BASE_NAME = "ems_polling_booth";
 var PRIVATE_DETAILS = "../../.privateDetails.json";
 var PROFILE_DETAILS = "../../profileDetails.json";
@@ -46,16 +44,18 @@ var enAccountDetails = function (cb) {
   });
 };
 
-var init = (function () {
-  console.log("init");
-  async.series([enAccountDetails, cleanState], function (err, data) {
-    if (err) throw new Error("ERROR: start() fail.");
-    scrapeForAvailableProfiles(data[0]);
-    //matchJobsToProfiles(data[0])
-    console.log("start success.");
-    console.log(data);
-  });
-})();
+/*
+let init = (() => {
+  console.log('init')
+  async.series([enAccountDetails, cleanState], (err, data) => {
+    if (err) throw new Error('ERROR: start() fail.') 
+      scrapeForAvailableProfiles(data[0])
+      //matchJobsToProfiles(data[0]) 
+      console.log('start success.')
+      console.log(data)
+  })
+})()
+*/
 
 var scrapeForAvailableProfiles = function (uDetails) {
   var cmd = "casperjs --engine=slimerjs " + ("--userEmail=" + uDetails.userEmail + " ") + ("--userPass=" + uDetails.userPass + " ") + EN_GET_PROFILES;
@@ -145,10 +145,10 @@ var matchJobsToProfiles = function (uDetails) {
       c.profId = profArr[profArr.length - 2];
       return c;
     }).values().__wrapped__;
-    //console.log(cleanedInfo)
+    console.log(chalk.bgBlack(cleanedInfo));
     //
     //wait for a default 5minutes for all export profiles to be available
-    console.log(chalk.bgRed("SLEEPING FOR 5 MINS: wait for all exports to be downloadable..."));
+    console.log(chalk.bgRed("SLEEP FOR 5 MINS: wait for exports to be downloadable."));
     setTimeout(function () {
       //TODO: check to see if all downloads are actually avail/complete before
       //calling thru to eachProfileData func.
@@ -170,10 +170,53 @@ var eachProfileData = function (cInfo, uDetails) {
     clargs.push("--enProfId=" + entry.profId);
     jobs.push(makeCasperJob(clargs, EN_DL_PROFILES));
   }
+  //finally download records for each profile
   async.parallel(jobs, function (err, results) {
     if (err) throw err;
     console.log("ASYNC PARALLEL DONE: downloaded profiles.");
+    //console.log(results)
+    updateProfiles(cInfo, uDetails);
   });
+};
+
+var updateProfiles = (function (cInfo, uDetails, yadda) {
+  console.log(chalk.bgBlue("updating all the profiles."));
+  fs.readdir(DATA_DIR, function (err, files) {
+    if (err) throw err;
+    if (!files.length) throw new Error("ERROR: " + DATA_DIR + " is empty so no csv files");
+    var csvExportFileNames = _.filter(files, function (file) {
+      return /.csv$/.test(file) && /^profileId/.test(file);
+    });
+
+    _.forEach(csvExportFileNames, function (file) {
+      updateSingleProfile(file, cInfo, uDetails);
+    });
+  });
+})(123, 30303, "asdf");
+
+var updateSingleProfile = function (file, cInfo, uDetails) {
+  var parsedHeader = false;
+  var officeAccessIdx = undefined;
+  fs.createReadStream("" + DATA_DIR + "" + file, { encoding: "utf8" }).pipe(csv.parse({ delimiter: "," })).pipe(csv.transform(function (record) {
+    try {
+      if (_.indexOf(record, "Office Access") !== -1 && _.indexOf(record, "Date Created") !== -1 && _.indexOf(record, "Date Modified") !== -1 && _.indexOf(record, "CiviID") !== -1 && _.indexOf(record, "Address 1") !== -1 && _.indexOf(record, "MP Subscription") !== -1) {
+        parsedHeader = true;
+        officeAccessIdx = _.indexOf(record, "Office Access");
+        return record;
+      } else {
+        if (parsedHeader && officeAccessIdx !== -1) {
+          record[officeAccessIdx] = "BLAH";
+          return record;
+        } else {
+          console.log("WEIRD ERROR!!!!: " + officeAccessIdx);
+          //TODO: weird code area. parsedHeader but no Office Access header field
+          return record;
+        }
+      }
+    } catch (e) {
+      throw new Error(e);
+    }
+  })).pipe(csv.stringify()).pipe(fs.createWriteStream("" + DATA_DIR + "updated_" + file), { encoding: "utf8" });
 };
 
 // LATER STUFF
@@ -222,4 +265,3 @@ var createTheCsvFile = function (reduced) {
     console.log("SUCCESS: save the test.csv to disk");
   });
 };
-//console.log(results)
